@@ -1,4 +1,4 @@
-{$DOMAIN} {
+http://:80 {
     log {
         output stdout
     }
