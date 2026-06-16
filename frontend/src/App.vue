@@ -437,9 +437,10 @@ const checkEmail = async () => {
 const fetchScoreboard = async () => {
   try {
     const res = await axios.get(`${API_BASE}/scoreboard`)
-    scoreboard.value = res.data
+    scoreboard.value = Array.isArray(res.data) ? res.data : []
   } catch (err) {
     console.error('Failed to fetch scoreboard', err)
+    scoreboard.value = []
   }
 }
 
@@ -477,9 +478,10 @@ const saveAdminResults = async () => {
 const fetchAllSubmissions = async () => {
   try {
     const res = await axios.get(`${API_BASE}/submissions`)
-    allSubmissions.value = res.data
+    allSubmissions.value = Array.isArray(res.data) ? res.data : []
   } catch (err) {
     console.error('Failed to fetch submissions', err)
+    allSubmissions.value = []
   }
 }
 

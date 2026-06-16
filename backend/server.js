@@ -16,7 +16,14 @@ if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({ submissions: [], results: [] }));
 }
 
-const getDb = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+const getDb = () => {
+  try {
+    const content = fs.readFileSync(DB_FILE, 'utf8');
+    return content ? JSON.parse(content) : { submissions: [], results: [] };
+  } catch (e) {
+    return { submissions: [], results: [] };
+  }
+};
 const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 
 const calculateScore = (submission, results) => {
