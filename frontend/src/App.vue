@@ -82,14 +82,28 @@
 
       <!-- Admin Section -->
       <div v-else-if="isAdmin" class="space-y-8">
-        <div class="flex justify-between items-center bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl gap-4">
           <div>
             <h2 class="text-2xl font-bold text-red-500">Admin Panel</h2>
-            <p class="text-slate-400">Set official tournament results</p>
+            <p class="text-slate-400">Set official tournament results and manage system</p>
           </div>
-          <button @click="logout" class="bg-slate-700 hover:bg-slate-600 px-6 py-2 rounded-lg transition-colors border border-slate-600">
-            Exit Admin
-          </button>
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center bg-slate-700 px-4 py-2 rounded-lg border border-slate-600">
+              <span class="mr-3 font-medium text-sm">Submissions:</span>
+              <button 
+                @click="toggleSubmissions" 
+                :class="['relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', submissionsEnabled ? 'bg-green-600' : 'bg-slate-500']"
+              >
+                <span :class="['inline-block h-4 w-4 transform rounded-full bg-white transition-transform', submissionsEnabled ? 'translate-x-6' : 'translate-x-1']" />
+              </button>
+              <span :class="['ml-2 text-xs font-bold uppercase', submissionsEnabled ? 'text-green-400' : 'text-slate-400']">
+                {{ submissionsEnabled ? 'Open' : 'Closed' }}
+              </span>
+            </div>
+            <button @click="logout" class="bg-slate-700 hover:bg-slate-600 px-6 py-2 rounded-lg transition-colors border border-slate-600">
+              Exit Admin
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -178,10 +192,14 @@
         </div>
 
         <div class="mt-12 flex flex-col items-center">
+          <div v-if="!submissionsEnabled" class="mb-6 bg-red-900/40 border border-red-500 text-red-200 px-6 py-4 rounded-xl text-center max-w-md">
+            <p class="font-bold text-lg">⚠️ Submissions are currently closed.</p>
+            <p class="text-sm opacity-80">The admin has disabled new entries. You can still view your previous results if you already submitted.</p>
+          </div>
           <button 
             @click="showConfirm = true" 
-            :disabled="submitting"
-            class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-5 px-12 rounded-full text-xl shadow-2xl transition-all transform hover:scale-110 disabled:opacity-50 uppercase tracking-widest"
+            :disabled="submitting || !submissionsEnabled"
+            class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-5 px-12 rounded-full text-xl shadow-2xl transition-all transform hover:scale-110 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 uppercase tracking-widest"
           >
             {{ submitting ? 'Submitting...' : 'Submit Prediction' }}
           </button>
@@ -318,6 +336,7 @@ import { ref, onMounted } from 'vue'
 
 onMounted(() => {
   fetchScoreboard()
+  fetchSettings()
 })
 import draggable from 'vuedraggable'
 import axios from 'axios'
@@ -338,6 +357,7 @@ const submitError = ref('')
 const showSuccess = ref(false)
 const showConfirm = ref(false)
 const adminResults = ref([])
+const submissionsEnabled = ref(true)
 
 const teamFlags = {
   'Mexico': 'mx',
@@ -441,6 +461,25 @@ const fetchScoreboard = async () => {
   } catch (err) {
     console.error('Failed to fetch scoreboard', err)
     scoreboard.value = []
+  }
+}
+
+const fetchSettings = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/settings`)
+    submissionsEnabled.value = res.data.submissionsEnabled
+  } catch (err) {
+    console.error('Failed to fetch settings', err)
+  }
+}
+
+const toggleSubmissions = async () => {
+  try {
+    const newValue = !submissionsEnabled.value
+    await axios.post(`${API_BASE}/settings`, { settings: { submissionsEnabled: newValue } })
+    submissionsEnabled.value = newValue
+  } catch (err) {
+    alert('Failed to update settings')
   }
 }
 

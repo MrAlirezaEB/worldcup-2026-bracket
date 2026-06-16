@@ -5,23 +5,25 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
 
 // Simple JSON Database implementation (replacing MongoDB)
 const DB_FILE = path.join(__dirname, 'db.json');
 
 // Initialize DB if not exists
 if (!fs.existsSync(DB_FILE)) {
-  fs.writeFileSync(DB_FILE, JSON.stringify({ submissions: [], results: [] }));
+  fs.writeFileSync(DB_FILE, JSON.stringify({ submissions: [], results: [], settings: { submissionsEnabled: true } }));
 }
 
 const getDb = () => {
   try {
     const content = fs.readFileSync(DB_FILE, 'utf8');
-    return content ? JSON.parse(content) : { submissions: [], results: [] };
+    const data = content ? JSON.parse(content) : { submissions: [], results: [], settings: { submissionsEnabled: true } };
+    if (!data.settings) data.settings = { submissionsEnabled: true };
+    return data;
   } catch (e) {
-    return { submissions: [], results: [] };
+    return { submissions: [], results: [], settings: { submissionsEnabled: true } };
   }
 };
 const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
@@ -41,6 +43,40 @@ const calculateScore = (submission, results) => {
   });
   return score;
 };
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
+// API Routes
+app.get('/api/settings', (req, res) => {
+  try {
+    const db = getDb();
+    res.json(db.settings || { submissionsEnabled: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/settings', (req, res) => {
+  try {
+    console.log('Received settings update:', req.body);
+    const { settings } = req.body;
+    if (!settings) {
+      return res.status(400).json({ error: 'Settings object is required' });
+    }
+    const db = getDb();
+    db.settings = { ...db.settings, ...settings };
+    saveDb(db);
+    console.log('Updated settings:', db.settings);
+    res.json({ message: 'Settings updated successfully', settings: db.settings });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.post('/api/check-email', async (req, res) => {
   try {
@@ -115,6 +151,10 @@ app.post('/api/submit', async (req, res) => {
     const { email, standings } = req.body;
     const db = getDb();
     
+    if (db.settings && db.settings.submissionsEnabled === false) {
+      return res.status(403).json({ error: 'Submissions are currently closed by admin.' });
+    }
+
     if (db.submissions.find(s => s.email === email)) {
       return res.status(400).json({ error: 'This email has already submitted.' });
     }
@@ -132,6 +172,11 @@ app.post('/api/submit', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Generic 404 for API routes
+app.all(/^\/api\/.*/, (req, res) => {
+  res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
 });
 
 const PORT = process.env.PORT || 5000;
