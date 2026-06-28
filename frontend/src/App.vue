@@ -51,7 +51,9 @@
                   <tr class="text-slate-500 uppercase text-xs tracking-widest border-b border-slate-700">
                     <th class="px-6 py-4">Rank</th>
                     <th class="px-6 py-4">Player</th>
-                    <th class="px-6 py-4 text-right">Points</th>
+                    <th class="px-6 py-4 text-right hidden sm:table-cell">Group</th>
+                    <th class="px-6 py-4 text-right hidden sm:table-cell">KO</th>
+                    <th class="px-6 py-4 text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/50">
@@ -67,6 +69,8 @@
                       </span>
                     </td>
                     <td class="px-6 py-4 font-medium">{{ entry.email }}</td>
+                    <td class="px-6 py-4 text-right text-slate-400 hidden sm:table-cell">{{ entry.groupScore ?? 0 }}</td>
+                    <td class="px-6 py-4 text-right text-indigo-400 hidden sm:table-cell">{{ entry.knockoutScore ?? 0 }}</td>
                     <td class="px-6 py-4 text-right">
                       <span class="text-xl font-black text-yellow-500 group-hover:scale-110 inline-block transition-transform">
                         {{ entry.score }}
@@ -87,17 +91,29 @@
             <h2 class="text-2xl font-bold text-red-500">Admin Panel</h2>
             <p class="text-slate-400">Set official tournament results and manage system</p>
           </div>
-          <div class="flex items-center space-x-4">
+          <div class="flex flex-wrap items-center gap-3">
             <div class="flex items-center bg-slate-700 px-4 py-2 rounded-lg border border-slate-600">
-              <span class="mr-3 font-medium text-sm">Submissions:</span>
-              <button 
-                @click="toggleSubmissions" 
+              <span class="mr-3 font-medium text-sm">Group stage:</span>
+              <button
+                @click="toggleSubmissions"
                 :class="['relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', submissionsEnabled ? 'bg-green-600' : 'bg-slate-500']"
               >
                 <span :class="['inline-block h-4 w-4 transform rounded-full bg-white transition-transform', submissionsEnabled ? 'translate-x-6' : 'translate-x-1']" />
               </button>
               <span :class="['ml-2 text-xs font-bold uppercase', submissionsEnabled ? 'text-green-400' : 'text-slate-400']">
                 {{ submissionsEnabled ? 'Open' : 'Closed' }}
+              </span>
+            </div>
+            <div class="flex items-center bg-slate-700 px-4 py-2 rounded-lg border border-slate-600">
+              <span class="mr-3 font-medium text-sm">Knockout:</span>
+              <button
+                @click="toggleKnockout"
+                :class="['relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', knockoutEnabled ? 'bg-green-600' : 'bg-slate-500']"
+              >
+                <span :class="['inline-block h-4 w-4 transform rounded-full bg-white transition-transform', knockoutEnabled ? 'translate-x-6' : 'translate-x-1']" />
+              </button>
+              <span :class="['ml-2 text-xs font-bold uppercase', knockoutEnabled ? 'text-green-400' : 'text-slate-400']">
+                {{ knockoutEnabled ? 'Open' : 'Closed' }}
               </span>
             </div>
             <button @click="logout" class="bg-slate-700 hover:bg-slate-600 px-6 py-2 rounded-lg transition-colors border border-slate-600">
@@ -137,13 +153,97 @@
         </div>
 
         <div class="mt-12 flex flex-col items-center">
-          <button 
-            @click="saveAdminResults" 
+          <button
+            @click="saveAdminResults"
             :disabled="submitting"
             class="bg-red-600 hover:bg-red-700 text-white font-black py-5 px-12 rounded-full text-xl shadow-2xl transition-all transform hover:scale-110 uppercase tracking-widest"
           >
             {{ submitting ? 'Saving...' : 'Save Official Results' }}
           </button>
+        </div>
+
+        <!-- Admin: Knockout Bracket Setup -->
+        <div class="border-t-2 border-slate-700 pt-8 space-y-6">
+          <div>
+            <h3 class="text-2xl font-bold text-indigo-400">Knockout Bracket — Round of 32</h3>
+            <p class="text-slate-400 text-sm">Define the 16 Round-of-32 matchups. These seed the whole knockout bracket for every player.</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div v-for="(match, i) in adminBracket" :key="'kb' + i" class="bg-slate-800 rounded-xl border border-slate-700 p-4 space-y-2">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-widest">Match {{ i + 1 }}</div>
+              <div class="flex items-center gap-2">
+                <img v-if="teamFlags[match.teamA]" :src="`https://flagcdn.com/w40/${teamFlags[match.teamA]}.png`" :alt="match.teamA" class="w-6 h-4 object-cover rounded-sm flex-shrink-0" />
+                <span v-else class="w-6 h-4 bg-slate-600 rounded-sm flex-shrink-0"></span>
+                <select v-model="match.teamA" class="w-full p-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm focus:border-indigo-500 focus:outline-none">
+                  <option value="">— Team A —</option>
+                  <option v-for="t in allTeams" :key="'a' + i + t" :value="t">{{ t }}</option>
+                </select>
+              </div>
+              <div class="text-center text-[10px] text-slate-500 uppercase">vs</div>
+              <div class="flex items-center gap-2">
+                <img v-if="teamFlags[match.teamB]" :src="`https://flagcdn.com/w40/${teamFlags[match.teamB]}.png`" :alt="match.teamB" class="w-6 h-4 object-cover rounded-sm flex-shrink-0" />
+                <span v-else class="w-6 h-4 bg-slate-600 rounded-sm flex-shrink-0"></span>
+                <select v-model="match.teamB" class="w-full p-2 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm focus:border-indigo-500 focus:outline-none">
+                  <option value="">— Team B —</option>
+                  <option v-for="t in allTeams" :key="'b' + i + t" :value="t">{{ t }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-center">
+            <button
+              @click="saveAdminBracket"
+              :disabled="adminKoSaving"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-10 rounded-full shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 uppercase tracking-widest"
+            >
+              {{ adminKoSaving ? 'Saving...' : 'Save Bracket' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin: Official Knockout Results -->
+        <div v-if="bracketReady" class="border-t-2 border-slate-700 pt-8 space-y-6">
+          <div>
+            <h3 class="text-2xl font-bold text-red-400">Official Knockout Results</h3>
+            <p class="text-slate-400 text-sm">Enter the real score of each match as it is played. Winners advance automatically. Leave future matches blank.</p>
+          </div>
+
+          <KnockoutBracket :rounds="adminKoRounds" :champion="adminKoChampion" :team-flags="teamFlags" editable />
+
+          <div class="flex justify-center">
+            <button
+              @click="saveAdminKnockoutResults"
+              :disabled="adminKoSaving"
+              class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-10 rounded-full shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 uppercase tracking-widest"
+            >
+              {{ adminKoSaving ? 'Saving...' : 'Save Knockout Results' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knockout Prediction Builder -->
+      <div v-else-if="isLoggedIn && hasSubmitted && koPredicting" class="space-y-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl gap-4">
+          <div>
+            <h2 class="text-2xl font-bold text-indigo-400">Knockout Predictions</h2>
+            <p class="text-slate-400 text-sm">Set the score of every match — the winner advances automatically. Exact score = 10 pts, correct winner = 3 pts. No draws.</p>
+          </div>
+          <button @click="cancelKnockout" class="text-slate-400 hover:text-white text-sm underline">Back to dashboard</button>
+        </div>
+
+        <KnockoutBracket :rounds="koRounds" :champion="koChampion" :team-flags="teamFlags" editable />
+
+        <div class="flex flex-col items-center">
+          <button
+            @click="submitKnockout"
+            :disabled="koSubmitting || !koChampion"
+            class="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-black py-5 px-12 rounded-full text-xl shadow-2xl transition-all transform hover:scale-110 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 uppercase tracking-widest"
+          >
+            {{ koSubmitting ? 'Submitting...' : 'Submit Knockout Prediction' }}
+          </button>
+          <p v-if="koSubmitError" class="text-red-400 mt-4 font-bold bg-red-900/20 px-4 py-2 rounded-lg">{{ koSubmitError }}</p>
+          <p v-else-if="!koChampion" class="text-slate-500 mt-4 text-sm">Fill in every match (no draws) to decide a champion and unlock submit.</p>
         </div>
       </div>
 
@@ -212,16 +312,63 @@
         <div class="flex justify-between items-center bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
           <div>
             <h2 class="text-2xl font-bold text-yellow-500">Tournament Dashboard</h2>
-            <div class="flex items-center space-x-4 mt-1">
+            <div class="flex flex-wrap items-center gap-2 mt-1">
               <p class="text-slate-400">View your prediction and community results</p>
-              <span v-if="currentUserSubmission?.email === email" class="bg-yellow-500 text-slate-900 px-3 py-1 rounded-full text-sm font-black">
-                YOUR SCORE: {{ currentUserSubmission?.score || 0 }}
+              <span class="bg-slate-700 text-slate-200 px-3 py-1 rounded-full text-xs font-bold">
+                Group: {{ mySubmission?.groupScore || 0 }}
+              </span>
+              <span class="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold">
+                Knockout: {{ mySubmission?.knockoutScore || 0 }}
+              </span>
+              <span class="bg-yellow-500 text-slate-900 px-3 py-1 rounded-full text-sm font-black">
+                TOTAL: {{ mySubmission?.score || 0 }}
               </span>
             </div>
           </div>
           <button @click="logout" class="bg-slate-700 hover:bg-slate-600 px-6 py-2 rounded-lg transition-colors border border-slate-600">
             Sign Out
           </button>
+        </div>
+
+        <!-- Knockout panel -->
+        <div class="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
+          <div class="bg-gradient-to-r from-indigo-700 to-blue-800 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 class="text-xl font-black uppercase italic tracking-tight">Knockout Stage</h3>
+            <span v-if="hasSubmittedKnockout" class="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm font-black">
+              KNOCKOUT SCORE: {{ mySubmission?.knockoutScore || 0 }}
+            </span>
+          </div>
+          <div class="p-6">
+            <!-- Not yet submitted -->
+            <div v-if="!hasSubmittedKnockout">
+              <div v-if="!knockoutEnabled" class="text-slate-400">
+                ⏳ Knockout predictions are not open yet. Check back once the admin opens them.
+              </div>
+              <div v-else-if="!bracketReady" class="text-slate-400">
+                ⏳ Knockout predictions are open, but the bracket has not been published yet.
+              </div>
+              <div v-else class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <p class="text-slate-300">The knockout bracket is live! Predict the score of every match down to the champion. Exact score = <span class="text-yellow-500 font-bold">10 pts</span>, correct winner = <span class="text-yellow-500 font-bold">3 pts</span>.</p>
+                <button
+                  @click="startKnockout"
+                  class="flex-shrink-0 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-black py-3 px-8 rounded-full shadow-xl transition-all transform hover:scale-105 uppercase tracking-widest"
+                >
+                  Predict Knockout
+                </button>
+              </div>
+            </div>
+
+            <!-- Already submitted: read-only -->
+            <div v-else class="space-y-4">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="text-slate-400 text-sm">Your predicted champion:</span>
+                <span class="bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-900 font-black px-4 py-1 rounded-full">
+                  🏆 {{ myKnockoutChampion || '—' }}
+                </span>
+              </div>
+              <KnockoutBracket :rounds="myKnockoutRounds" :champion="myKnockoutChampion" :team-flags="teamFlags" />
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -332,14 +479,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 onMounted(() => {
   fetchScoreboard()
   fetchSettings()
+  fetchKnockoutBracket()
 })
 import draggable from 'vuedraggable'
 import axios from 'axios'
+import KnockoutBracket from './KnockoutBracket.vue'
 
 const API_BASE = '/api'
 
@@ -358,6 +507,117 @@ const showSuccess = ref(false)
 const showConfirm = ref(false)
 const adminResults = ref([])
 const submissionsEnabled = ref(true)
+
+// --- Knockout stage ---
+const ROUND_DEFS = [
+  { key: 'R32', name: 'Round of 32', count: 16 },
+  { key: 'R16', name: 'Round of 16', count: 8 },
+  { key: 'QF', name: 'Quarter-finals', count: 4 },
+  { key: 'SF', name: 'Semi-finals', count: 2 },
+  { key: 'F', name: 'Final', count: 1 },
+]
+
+function emptyScores() {
+  const s = {}
+  ROUND_DEFS.forEach(r => { s[r.key] = Array.from({ length: r.count }, () => ({ a: '', b: '' })) })
+  return s
+}
+
+function winnerOf(teamA, teamB, score) {
+  if (!teamA || !teamB || !score) return null
+  if (score.a === '' || score.b === '' || score.a === null || score.b === null) return null
+  const a = Number(score.a), b = Number(score.b)
+  if (Number.isNaN(a) || Number.isNaN(b) || a === b) return null
+  return a > b ? teamA : teamB
+}
+
+// Build all knockout rounds from the fixed R32 matchups + a set of score inputs.
+// Each round's teams are derived from the predicted winners of the previous round.
+function buildRounds(r32, scores) {
+  const rounds = []
+  let pairs = (r32 || []).map(m => [m.teamA, m.teamB])
+  for (const def of ROUND_DEFS) {
+    const sc = scores[def.key] || []
+    const matches = pairs.map((pair, i) => ({ teamA: pair[0], teamB: pair[1], score: sc[i] || { a: '', b: '' } }))
+    rounds.push({ key: def.key, name: def.name, matches })
+    const winners = matches.map(m => winnerOf(m.teamA, m.teamB, m.score))
+    pairs = []
+    for (let i = 0; i < winners.length; i += 2) pairs.push([winners[i], winners[i + 1]])
+  }
+  return rounds
+}
+
+function championOf(rounds) {
+  if (!rounds.length) return null
+  const f = rounds[rounds.length - 1].matches[0]
+  return winnerOf(f.teamA, f.teamB, f.score)
+}
+
+function roundsToPayload(rounds) {
+  const payload = {}
+  rounds.forEach(r => {
+    payload[r.key] = r.matches.map(m => ({
+      teamA: m.teamA || null,
+      teamB: m.teamB || null,
+      scoreA: (m.score.a === '' || m.score.a === null) ? null : Number(m.score.a),
+      scoreB: (m.score.b === '' || m.score.b === null) ? null : Number(m.score.b)
+    }))
+  })
+  return payload
+}
+
+function payloadToScores(payload) {
+  const s = emptyScores()
+  ROUND_DEFS.forEach(r => {
+    const arr = (payload && payload[r.key]) || []
+    s[r.key] = Array.from({ length: r.count }, (_, i) => ({
+      a: arr[i] && arr[i].scoreA != null ? String(arr[i].scoreA) : '',
+      b: arr[i] && arr[i].scoreB != null ? String(arr[i].scoreB) : ''
+    }))
+  })
+  return s
+}
+
+const knockoutEnabled = ref(false)
+const knockoutBracket = ref(null)            // { r32: [{ teamA, teamB }, ...16] }
+const koScores = ref(emptyScores())          // logged-in user's predictions
+const koPredicting = ref(false)
+const koSubmitting = ref(false)
+const koSubmitError = ref('')
+const mySubmission = ref(null)               // the logged-in user's own submission
+
+// Admin knockout state
+const adminBracket = ref(Array.from({ length: 16 }, () => ({ teamA: '', teamB: '' })))
+const adminKoScores = ref(emptyScores())
+const adminKoSaving = ref(false)
+
+const allTeams = computed(() => {
+  const set = new Set()
+  groups.value.forEach(g => g.teams.forEach(t => set.add(t)))
+  return Array.from(set).sort()
+})
+const koRounds = computed(() => knockoutBracket.value ? buildRounds(knockoutBracket.value.r32, koScores.value) : [])
+const koChampion = computed(() => championOf(koRounds.value))
+const adminKoRounds = computed(() => knockoutBracket.value ? buildRounds(knockoutBracket.value.r32, adminKoScores.value) : [])
+const adminKoChampion = computed(() => championOf(adminKoRounds.value))
+const hasSubmittedKnockout = computed(() => !!(mySubmission.value && mySubmission.value.knockout))
+const bracketReady = computed(() => !!(knockoutBracket.value && Array.isArray(knockoutBracket.value.r32) && knockoutBracket.value.r32.length === 16))
+
+// Read-only view of the logged-in user's submitted knockout prediction.
+const myKnockoutRounds = computed(() => {
+  const ko = mySubmission.value && mySubmission.value.knockout
+  if (!ko) return []
+  return ROUND_DEFS.map(def => ({
+    key: def.key,
+    name: def.name,
+    matches: (ko[def.key] || []).map(m => ({ teamA: m.teamA, teamB: m.teamB, scoreA: m.scoreA, scoreB: m.scoreB }))
+  }))
+})
+const myKnockoutChampion = computed(() => {
+  const f = mySubmission.value && mySubmission.value.knockout && mySubmission.value.knockout.F && mySubmission.value.knockout.F[0]
+  if (!f || f.scoreA == null || f.scoreB == null) return null
+  return Number(f.scoreA) > Number(f.scoreB) ? f.teamA : f.teamB
+})
 
 const teamFlags = {
   'Mexico': 'mx',
@@ -431,6 +691,7 @@ const checkEmail = async () => {
     isAdmin.value = true
     isLoggedIn.value = true
     await fetchAdminResults()
+    await loadAdminKnockout()
     return
   }
   loading.value = true
@@ -439,9 +700,11 @@ const checkEmail = async () => {
     const res = await axios.post(`${API_BASE}/check-email`, { email: email.value })
     if (res.data.exists) {
       currentUserSubmission.value = res.data.userSubmission
+      mySubmission.value = res.data.userSubmission
       hasSubmitted.value = true
       isLoggedIn.value = true
       await fetchAllSubmissions()
+      await fetchKnockoutBracket()
     } else {
       isLoggedIn.value = true
       hasSubmitted.value = false
@@ -468,8 +731,18 @@ const fetchSettings = async () => {
   try {
     const res = await axios.get(`${API_BASE}/settings`)
     submissionsEnabled.value = res.data.submissionsEnabled
+    knockoutEnabled.value = !!res.data.knockoutEnabled
   } catch (err) {
     console.error('Failed to fetch settings', err)
+  }
+}
+
+const fetchKnockoutBracket = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/knockout-bracket`)
+    knockoutBracket.value = res.data || null
+  } catch (err) {
+    console.error('Failed to fetch knockout bracket', err)
   }
 }
 
@@ -480,6 +753,64 @@ const toggleSubmissions = async () => {
     submissionsEnabled.value = newValue
   } catch (err) {
     alert('Failed to update settings')
+  }
+}
+
+const toggleKnockout = async () => {
+  try {
+    const newValue = !knockoutEnabled.value
+    await axios.post(`${API_BASE}/settings`, { settings: { knockoutEnabled: newValue } })
+    knockoutEnabled.value = newValue
+  } catch (err) {
+    alert('Failed to update settings')
+  }
+}
+
+const loadAdminKnockout = async () => {
+  await fetchKnockoutBracket()
+  if (knockoutBracket.value && Array.isArray(knockoutBracket.value.r32)) {
+    const r32 = knockoutBracket.value.r32
+    adminBracket.value = Array.from({ length: 16 }, (_, i) => ({
+      teamA: (r32[i] && r32[i].teamA) || '',
+      teamB: (r32[i] && r32[i].teamB) || ''
+    }))
+  }
+  try {
+    const res = await axios.get(`${API_BASE}/knockout-results`)
+    if (res.data) adminKoScores.value = payloadToScores(res.data)
+  } catch (err) {
+    console.error('Failed to fetch knockout results', err)
+  }
+}
+
+const saveAdminBracket = async () => {
+  if (!adminBracket.value.every(m => m.teamA && m.teamB)) {
+    alert('Please select both teams for all 16 Round-of-32 matches.')
+    return
+  }
+  adminKoSaving.value = true
+  try {
+    await axios.post(`${API_BASE}/knockout-bracket`, {
+      bracket: { r32: adminBracket.value.map(m => ({ teamA: m.teamA, teamB: m.teamB })) }
+    })
+    await fetchKnockoutBracket()
+    alert('Knockout bracket saved!')
+  } catch (err) {
+    alert(err.response?.data?.error || 'Failed to save bracket')
+  } finally {
+    adminKoSaving.value = false
+  }
+}
+
+const saveAdminKnockoutResults = async () => {
+  adminKoSaving.value = true
+  try {
+    await axios.post(`${API_BASE}/knockout-results`, { results: roundsToPayload(adminKoRounds.value) })
+    alert('Official knockout results saved!')
+  } catch (err) {
+    alert('Failed to save knockout results')
+  } finally {
+    adminKoSaving.value = false
   }
 }
 
@@ -531,6 +862,50 @@ const logout = () => {
   email.value = ''
   error.value = ''
   currentUserSubmission.value = null
+  mySubmission.value = null
+  koPredicting.value = false
+  koSubmitError.value = ''
+  koScores.value = emptyScores()
+}
+
+const startKnockout = async () => {
+  await fetchKnockoutBracket()
+  if (!bracketReady.value) {
+    alert('The knockout bracket is not available yet. Please check back later.')
+    return
+  }
+  koScores.value = emptyScores()
+  koSubmitError.value = ''
+  koPredicting.value = true
+}
+
+const cancelKnockout = () => {
+  koPredicting.value = false
+  koSubmitError.value = ''
+}
+
+const submitKnockout = async () => {
+  if (!koChampion.value) {
+    koSubmitError.value = 'Complete every match (no draws allowed) so a champion is decided.'
+    return
+  }
+  koSubmitting.value = true
+  koSubmitError.value = ''
+  try {
+    await axios.post(`${API_BASE}/submit-knockout`, {
+      email: email.value,
+      knockout: roundsToPayload(koRounds.value)
+    })
+    koPredicting.value = false
+    await fetchAllSubmissions()
+    mySubmission.value = allSubmissions.value.find(s => s.email === email.value) || mySubmission.value
+    currentUserSubmission.value = mySubmission.value
+    showSuccess.value = true
+  } catch (err) {
+    koSubmitError.value = err.response?.data?.error || 'Failed to submit knockout prediction. Try again.'
+  } finally {
+    koSubmitting.value = false
+  }
 }
 
 const submitPrediction = async () => {
@@ -548,8 +923,10 @@ const submitPrediction = async () => {
     showConfirm.value = false
     showSuccess.value = true
     await fetchAllSubmissions()
+    await fetchKnockoutBracket()
     // Set current user submission from the fetched data
     currentUserSubmission.value = allSubmissions.value.find(s => s.email === email.value)
+    mySubmission.value = currentUserSubmission.value
     hasSubmitted.value = true
   } catch (err) {
     submitError.value = err.response?.data?.error || 'Failed to submit. Try again.'

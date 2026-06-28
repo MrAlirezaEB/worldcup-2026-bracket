@@ -1937,7 +1937,7 @@
   ],
   "settings": {
     "submissionsEnabled": false,
-    "knockoutEnabled": true
+    "knockoutEnabled": false
   },
   "knockoutBracket": {
     "r32": [
